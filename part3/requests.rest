@@ -1,0 +1,28 @@
+### Get all contacts
+GET http://localhost:3001/api/persons
+
+### Get information
+GET http://localhost:3001/info
+
+### Get a single contact
+GET http://localhost:3001/api/persons/1
+
+### Delete a contact (deletes Ada Lovelace with ID: 2)
+DELETE http://localhost:3001/api/persons/2
+
+### Add new person
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+{
+"name": "Omer Yildirim",
+"number": "555-4443322"
+}
+
+### Incorrect addition (Missing name)
+POST http://localhost:3001/api/persons
+Content-Type: application/json
+
+{
+"number": "123456"
+}
