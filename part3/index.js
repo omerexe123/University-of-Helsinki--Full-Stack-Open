@@ -1,98 +1,85 @@
+require('dotenv').config() // .env kullanabilmek için şart
 const express = require('express')
-const morgan = require('morgan') // Morgan'ı dahil et
+const morgan = require('morgan')
+const cors = require('cors') // SADECE BİR KEZ YAZILMALI
+const Person = require('./models/person')
+
 const app = express()
-const cors = require('cors')
-app.use(cors())
-const cors = require('cors')
-app.use(cors())
 
+// Middleware'ler
+app.use(cors()) // SADECE BİR KEZ
 app.use(express.static('dist'))
-
 app.use(express.json())
 
-// Alıştırma 3.8: Morgan için özel bir "token" oluşturuyoruz
+// Morgan Log Ayarı
 morgan.token('body', (req) => JSON.stringify(req.body))
-
-// Morgan'ı yapılandır: metod, url, durum kodu, yanıt süresi ve gönderilen veri
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 
-app.use(express.json())
-
-let persons = [
-    { id: 1, name: "Arto Hellas", number: "040-123456" },
-    { id: 2, name: "Ada Lovelace", number: "39-44-5323523" },
-    { id: 3, name: "Dan Abramov", number: "12-43-234345" },
-    { id: 4, name: "Mary Poppendieck", number: "39-23-6423122" }
-]
-
-// 1. Ana Sayfa (Test amaçlı)
+// 1. Ana Sayfa
 app.get('/', (request, response) => {
   response.send('<h1>Phonebook Backend</h1>')
 })
 
-// 2. Tüm Listeyi Göster (Alıştırma 3.1)
+// 2. Tüm Listeyi Göster (MongoDB'den çekiyoruz)
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Person.find({}).then(persons => {
+    response.json(persons)
+  })
 })
 
-// 3. Bilgi Sayfası (Alıştırma 3.2)
+// 3. Bilgi Sayfası (Dinamik sayı MongoDB'den)
 app.get('/info', (request, response) => {
-  const count = persons.length
-  const date = new Date()
-  response.send(`
-    <p>Phonebook has info for ${count} people</p>
-    <p>${date}</p>
-  `)
+  Person.countDocuments({}).then(count => {
+    response.send(`
+      <p>Phonebook has info for ${count} people</p>
+      <p>${new Date()}</p>
+    `)
+  })
 })
 
-// 4. Tek Bir Kişiyi Göster (Alıştırma 3.3)
+// 4. Tek Bir Kişiyi Göster
 app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id) // URL'deki id'yi sayıya çevir
-  const person = persons.find(p => p.id === id)
-
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(404).end() // Kişi yoksa 404 dön
-  }
+  Person.findById(request.params.id)
+    .then(person => {
+      if (person) {
+        response.json(person)
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch(error => {
+      console.log(error)
+      response.status(400).send({ error: 'malformatted id' })
+    })
 })
 
-// 5. Kişi Sil (Alıştırma 3.4)
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  persons = persons.filter(p => p.id !== id)
-  
-  response.status(204).end() // Başarılı silme sonrası içerik yok mesajı
+// 5. Kişi Sil
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndDelete(request.params.id)
+    .then(result => {
+      response.status(204).end()
+    })
+    .catch(error => next(error))
 })
+// 6. Yeni Kişi Ekle (MongoDB'ye kaydet)
 app.post('/api/persons', (request, response) => {
-    const body = request.body
-  
-    // Alıştırma 3.6: Hata Kontrolleri
-    if (!body.name || !body.number) {
-      return response.status(400).json({ 
-        error: 'name or number missing' 
-      })
-    }
-  
-    // İsim zaten varsa ekleme yapma
-    const nameExists = persons.some(p => p.name === body.name)
-    if (nameExists) {
-      return response.status(400).json({ 
-        error: 'name must be unique' 
-      })
-    }
-  
-    // Yeni kişi nesnesi oluştur
-    const person = {
-      id: Math.floor(Math.random() * 1000000), // Şimdilik rastgele ID
-      name: body.name,
-      number: body.number
-    }
-  
-    persons = persons.concat(person)
-    response.json(person)
+  const body = request.body
+
+  if (!body.name || !body.number) {
+    return response.status(400).json({ error: 'name or number missing' })
+  }
+
+  const person = new Person({
+    name: body.name,
+    number: body.number,
   })
-  const PORT = process.env.PORT || 3001
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`)
+
+  person.save().then(savedPerson => {
+    response.json(savedPerson)
   })
+})
+
+const PORT = process.env.PORT || 3001
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`)
+})
