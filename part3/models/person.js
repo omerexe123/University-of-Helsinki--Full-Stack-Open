@@ -7,18 +7,31 @@ const url = process.env.MONGODB_URI
 console.log('connecting to', url)
 
 mongoose.connect(url)
-  .then(() => console.log('✅ MongoDB bağlantısı başarılı!'))
-  .catch((err) => console.log('❌ Bağlantı hatası:', err.message))
-  .then(result => {
-    console.log('connected to MongoDB')
+  .then(() => { 
+    console.log('✅ connected to MongoDB')
   })
   .catch((error) => {
-    console.log('error connecting to MongoDB:', error.message)
+    console.log('❌ error connecting to MongoDB:', error.message)
   })
 
 const personSchema = new mongoose.Schema({
-  name: String,
-  number: String,
+  name: {
+    type: String,
+    minLength: 3, // Exercise 3.19: Name must be at least 3 characters
+    required: true
+  },
+  number: {
+    type: String,
+    minLength: 8, // Exercise 3.20: Number must be at least 8 characters
+    required: true,
+    validate: {
+      // Special validation for formats like 09-123456 or 040-123456
+      validator: function(v) {
+        return /^\d{2,3}-\d+$/.test(v);
+      },
+      message: props => `${props.value} is not a valid phone number!`
+    }
+  },
 })
 
 personSchema.set('toJSON', {
